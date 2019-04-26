@@ -1,0 +1,186 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<title>reveal.js</title>
+
+		<link rel="stylesheet" href="css/reset.css">
+		<link rel="stylesheet" href="css/reveal.css">
+		<link rel="stylesheet" href="css/theme/blood.css">
+
+		<!-- Theme used for syntax highlighting of code -->
+		<link rel="stylesheet" href="lib/css/monokai.css">
+
+		<!-- Printing and PDF exports -->
+		<script>
+			var link = document.createElement( 'link' );
+			link.rel = 'stylesheet';
+			link.type = 'text/css';
+			link.href = window.location.search.match( /print-pdf/gi ) ? 'css/print/pdf.css' : 'css/print/paper.css';
+			document.getElementsByTagName( 'head' )[0].appendChild( link );
+		</script>
+	</head>
+	<body>
+		<div class="reveal">
+			<div class="slides">
+				<section>
+					<section data-markdown>
+						## Professionally 
+						# Evil 
+					</section>
+					<section data-markdown>
+						# Container Hackery 
+					</section>
+					<section>
+						By Cory Sabol
+					</section>
+				</section>
+				<section data-markdown>
+					## About Me
+					I'm a Security Consultant and Software Developer for Secure Ideas, LLC.
+				</section>
+				<section>
+					<section data-markdown>
+						## What are we doing here today?
+					</section>
+					<section data-markdown>
+						<script type="text/template">
+							#### Well allow me to fill you in 
+							Today we are going to <!-- .element: class="fragment" data-fragment-index="1" -->
+							- Learn some basics about containers and docker as well as a little bit about Kubernetes (k8s) <!-- .element: class="fragment" data-fragment-index="2" -->
+							- Examine some techniques that you might use on a penetration test when confronted with container solutions <!-- .element: class="fragment" data-fragment-index="3" -->
+							- Hack some crap! <!-- .element: class="fragment" data-fragment-index="4" -->
+						</script>
+					</section>
+				</section>
+				<section>
+					<section data-markdown>
+						## Lab Setup
+					</section>
+					<section data-markdown>
+						#### Make Sure you have the custom version of SamuraiWTF up and running
+						- If you're unprepared come and get a flash drive from me with the OVA already on it. Supplies are limited and I do want them back, slackers.
+					</section>
+					<section data-markdown>
+						Just start the VM and log in with
+						- Username: vagrant
+						- Password: vagrant
+
+						- Make sure you have an internet connection if you didn't setup before hand
+						- Let it run for a while, the k8s targets can take a while to start 
+					</section>
+					<section data-markdown>
+						P.S. if you want to watch the status of the targets as they start do this
+						```bash
+						tail -f .kube_cluster/kube_cluster_cron.log
+						```
+					</section>
+				</section>
+				<section>
+					<section data-markdown>
+						## But What is a Container?
+					</section>
+					<section data-markdown>
+						#### First off, a container is not (always) a Virtual Machine.
+					</section>
+					<section data-markdown>
+						<script type="text/template">
+							#### Containers
+							- are typically Lightweight (although they don't have to be) <!-- .element: class="fragment" data-fragment-index="1" -->
+							- provide isolation <!-- .element: class="fragment" data-fragment-index="2" -->
+							- reproducible <!-- .element: class="fragment" data-fragment-index="3" -->
+							- share the kernel with the host <!-- .element: class="fragment" data-fragment-index="4" -->
+							- have their resources managed by the host kernel (not a hypervisor) <!-- .element: class="fragment" data-fragment-index="5" -->
+						</script>
+					</section>
+					<section data-markdown>
+						<script type="text/template">
+							#### Container cont.
+							- are built from kernel primitives; examples include: <!-- .element: class="fragment" data-fragment-index="1" -->
+								- Namespaces <!-- .element: class="fragment" data-fragment-index="2" -->
+								- Cgroups <!-- .element: class="fragment" data-fragment-index="3" -->
+								- Seccomp-bpf <!-- .element: class="fragment" data-fragment-index="4" -->
+							- are often aimed at scalability (clustering and orchestration) <!-- .element: class="fragment" data-fragment-index="5" -->
+						</script>
+					</section>
+				</section>
+				<section>
+					<section data-markdown>
+						#### What is Docker 
+					</section>
+					<section data-markdown>
+						<script type="text/template">
+							#### Docker is
+							- a CLI tool for creating and managing containers <!-- .element: class="fragment" data-fragment-index="1" -->
+							- a daemon that is responsible for actually creating and interacting with the containers <!-- .element: class="fragment" data-fragment-index="2" -->
+							- the CLI tool communicates via RESTful api that is exposed through the docker.sock unix socket <!-- .element: class="fragment" data-fragment-index="3" -->
+						</script>
+					</section>
+					<section data-markdown>
+						#### Let's try out some simple docker commands!
+					</section>
+					<section data-markdown>
+						#### Let's try out some simple docker commands!
+						```bash
+						docker run -it alpine /bin/ash
+						docker ps -a
+						docker images -a
+						docker exec -it container_name cmd
+						docker kill container_name
+						```
+						
+						When in doubt just read the documentation.
+					</section>
+				</section>
+				<section>
+					<section data-markdown>
+						#### Okay, but what is Kubernetes
+					</section>
+					<section data-markdown>
+						#### Kubernetes (k8s) is
+					</section>
+				</section>
+			</div>
+		</div>
+
+		<script src="js/reveal.js"></script>
+
+		<script>
+			// More info about config & dependencies:
+			// - https://github.com/hakimel/reveal.js#configuration
+			// - https://github.com/hakimel/reveal.js#dependencies
+			Reveal.initialize({
+				dependencies: [
+					{ src: 'plugin/markdown/marked.js' },
+					{ src: 'plugin/markdown/markdown.js' },
+					{ src: 'plugin/notes/notes.js', async: true },
+					{ src: 'plugin/highlight/highlight.js', async: true }
+				]
+			});
+		</script>
+		<style type="text/css">
+			#footer-left {
+				position: absolute;
+				bottom: 0%;
+				left: 0%;
+				width: 50%;
+				max-width: 50%;
+				height: 125px;
+			}
+		</style>
+		<div id="hidden" style="display:none;">
+			<div id="header">
+				<div id="footer-left">
+					<img src="https://www.secureideas.com/images/SI_Logo.png" />
+				</div>
+			</div>
+		</div>
+		<script src="https://code.jquery.com/jquery-2.2.4.min.js"></script>
+		<script type="text/javascript">
+			var header = $('#header').html();
+			$('div.reveal').append(header);
+		</script>
+	</body>
+</html>
